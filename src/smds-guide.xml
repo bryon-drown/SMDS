@@ -1,0 +1,1194 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.0//EN"
+          "/usr/share/sgml/docbook/dtd/xml/4.0/docbookx.dtd"
+>
+<!--	"http://www.oasis-open.org/docbook/xml/4.0/docbookx.dtd" -->
+
+<book>
+  <bookinfo>
+    <title>SMDS: The Single Molecule Diffusion Simulator</title>
+    <author><firstname>Michael</firstname>
+    	<surname>Culbertson</surname>
+    	<affiliation>
+    	  <orgname>Wheaton College, Wheaton, IL</orgname>
+    	  <orgdiv>Chemistry Department</orgdiv>
+    	</affiliation></author>
+    <releaseinfo>$Id: smds-guide.xml,v 1.4 2006/06/02 21:56:56 mculbert Exp $</releaseinfo>
+  </bookinfo>
+  <preface>
+    <prefaceinfo><authorinitials>MJC</authorinitials>
+      <date>June, 2006</date>
+    </prefaceinfo>
+    <title>Preface</title>
+
+<para>The Single Molecule Diffusion Simulator (SMDS) is a software package
+that has grown out of the research interests of Dr. Daniel L. Burden,
+Chemistry Department, Wheaton College, Wheaton, IL.  In its original form,
+which Dr. Burden developed during his post-doc at NIST, the LabVIEW-based
+program simulated a small number of fluorescent particles in a two component
+mixture difusing on a planar substrate illuminated by a gaussian-gaussian
+laser.  Since that time, the program has been re-written and enhanced to
+include both two-dimensional and three-dimensional Brownian motion of a
+finite number of particles from a mixture of an arbitrary number of
+components.  The fluorescence record from each particle can be calculated
+either from an analytical expression for the point-spread function or from
+an intensity profile map taken experimentally with a given microscope. 
+Progressively the simulator has incorporated more and more automation to
+increase data through-put and ease of use.  The program, now written in
+Python with core routines in C, has the capacity to run in parallel over a
+cluster of workstations and further benefits from integration of the
+calculation of the autocorrelation function and tabulation of the Single
+Event Duration Histogram.  The integration of the simulator with Python
+allows the automation of more complex exploratory algorithms than was
+previously available.  The newest version of the simulator also features a
+modular core design, permitting very facile extension of the program to
+simulate new experimental conditions.</para>
+
+<para>This guide intends to be the definitive resource for using and
+extending SMDS.  It covers basic installation and use of the Python
+interface to the simulator in both single- and multi-processor operating
+modes as well as the steps necessary to extend the simulator's core to
+include new experimental conditions.  Also included is a cookbook of python
+recipies for a variety of tasks one might want to perform with the simulator
+as examples of the programmatic possibilities and quick-reference for
+accomplishing common tasks.  The appendicies are meant to provide a complete
+set of reference documentation for using and extending the simulator as well
+as a description of the distributed real-time autocorrelator.</para>
+
+<para>Though it is entirely usable in its present form, SMDS is a work in
+progress as more features are being incorporated to expand the simulative
+capabilities and ease of use of this program.  I would like to thank all
+those who have contributed to or supported the development of this software
+package, including: Dan Burden, Thorsten Wohland, the Wheaton College
+Math/Computer Science Department, the Dreyfus Foundation, the American
+Chemical Society, the National Institute for Standards and Technology, and
+Marlene Muddell.</para>
+  </preface>
+
+<!--  <part><title>Using SMDS</title> -->
+    <chapter><title>Installing SMDS</title>
+
+<para>Unlike previous versions which were stand-alone programs with an
+integrated Python interpreter, SMDS has been completely integrated into
+Python as a Python module.  Several prerequisites must be in place before
+installing the SMDS module:
+  <itemizedlist>
+    <listitem><para>Python 2.4 or later (http://www.python.org)
+			</para></listitem>
+    <listitem><para>Python Numeric (not Numpy or NumArray;
+http://numeric.scipy.org/)</para></listitem>
+    <listitem><para>Scientific Python
+(http://starship.python.org/~hinsen/ScientificPython/)</para></listitem>
+    <listitem><para>On Windows machines: Win32 Extensions for Python
+(http:/python.net/crew/skippy/win32/)</para></listitem>
+  </itemizedlist>
+
+Once these are in place, the SMDS module can be installed according to the
+instructions below.</para>
+
+<para>In distributed-processor mode, SMDS is composed of three parts: the
+master program providing the user interface and coordinating the simulation
+work, a Foundry on each machine that facilitates the initialization of
+remote processors, and the remote processor programs.  The Foundry must be
+running on any computer that will participate in distributed-mode
+simulations before the simulations are started.  Furthermore, for computers
+that will act as masters, the Foundry must be provided with a file that
+lists the names of all the computers that may be used as remote processors. 
+Each name must be on a line by itself, and lines that begin with # are
+ignored.  The location of the file is passed to the Foundry through the
+environment variable SMDS_HOSTS.</para>
+      
+      <section><title>Windows Setup Details</title> 
+<para>For Windows machines, there exists a meta-installer (smds-setup.exe)
+that combines the installers for all of the prerequisites to SMDS as well as
+the SMDS module itself.  Simply run the executable and follow the on-screen
+prompts.  If you already have some or all of the prerequisites on your
+system, you can de-select those components in the meta-installer to save
+time.  Note that SMDS works best on NT-based versions of Windows (NT, 2000,
+XP).  SMDS can work either in single-processor mode or as a remote processor
+under Windows 95/98, but it most likely will not work as a master computer
+in distributed-processor mode under Windows 95/98 due to operating system
+limitations.</para>
+
+<para>If you choose not to use the meta-installer, you must insure the SMDS
+Foundry is started before you may use SMDS in distributed-processor mode. 
+The SMDS Foundry is a background server program that faciliatates the
+initialization of remote processors.  It must be running both on the local
+machine and on all remote machines.  The Foundry can be started manually by
+executing:
+<programlisting>
+  c:\python24\python -c "from smds/starter import start; start()"
+</programlisting>
+or automatically by installing it as a system service.  Under Windows 95/98,
+this is accomplished simply by adding the above string value to the
+HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunServices key
+of the registry.  Under Windows NT/2000/XP, use the instsrv.exe utility from
+the Windows Resource Kit to install srvany.exe as a user-defined service
+called SMDS and add the above string value to the
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SMDS\Parameters key
+under the name "Application".  See Microsoft knowledge base article Q137890
+for more information.  Note that the file librandom.dll must be in the PATH,
+otherwise remote processors will fail to start.</para>
+
+<para>To set the SMDS_HOSTS environment variable in Windows NT/2000/XP,
+access the System control pannel and press the Environemnt button under the
+Advanced tab.  In the system environment variables section, add a new
+variable called SMDS_HOSTS and assign its value as the full path the the
+location of your hosts file.</para>
+      </section>
+
+      <section><title>UNIX Setup Details</title>
+<para>In UNIX, the SMDS module can be compiled and installed directly from
+source.  Unpack the source package and execute:
+  <programlisting>make &amp;&amp; python setup.py install</programlisting>
+The make command compiles the supporting random library and the setup.py
+utility compiles and installs the SMDS module and the random library.  If
+you do not have access to the system-wide Python installation, you may
+specify an alternate installation destination using the --home command-line
+option or by supplying a setup.cfg file, for example:
+<programlisting>
+[install]
+home=/home/mculbert/smds/py
+</programlisting>
+If you don't install the SMDS module to the system-wide location, you must
+include the installation directory in the PYTHONPATH environment variable. 
+If you use CSH, you could include something like the following in your
+~/.cshrc file:
+<programlisting>
+if ($?PYTHONPATH) then
+  setenv PYTHONPATH ${PYTHONPATH}:/home/mculbert/smds/py/lib/python
+else
+  setenv PYTHONPATH /hom/mculbert/smds/py/lib/python
+endif
+</programlisting>
+If you use Bash, you could include something like the following in your
+~/.bashrc file:
+<programlisting>
+export PYTHONPATH=$PYTHONPATH:/home/mculbert/smds/py/lib/python
+</programlisting></para>
+
+<para>You must also supply the path to your librandom.so file in the
+LD_LIBRARY_PATH environment variable.  The librandom.so file resides in the
+smds module directory.  This might mean something like one of the following:
+<programlisting>
+setenv LD_LIBRARY_PATH {$LD_LIBRARY_PATH}:/usr/lib/python2.4/site-packages/smds
+setenv LD_LIBRARY_PATH {$LD_LIBRARY_PATH}:/home/mculbert/smds/py/lib/python/smds
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/mculbert/smds/py/lib/python/smds
+</programlisting>
+according to you shell and to your SMDS installation location.</para>
+
+<para>The SMDS Foundry must be started before you may use SMDS in
+distributed-processor mode.  The SMDS Foundry is a background server program
+that faciliatates the initialization of remote processors.  It must be
+running both on the local machine and on all remote machines.  The Foundry
+can be started manually by executing:
+<programlisting>
+  c:\python24\python -c "from smds/starter import start; start()"
+</programlisting>
+or automatically by adding it to your crontab file, supplying the PYTHONPATH
+and LD_LIBRARY_PATH variables as appropriate:
+<programlisting>
+PYTHONPATH=/home/mculbert/smds/py/lib/python
+LD_LIBRARY_PATH=/home/mculbert/smds/py/lib/python/smds
+ 
+ 0 0,6,12,18 * * * python -m smds/starter
+</programlisting>
+This will check every six hours that the SMDS Foundry is active.</para>
+      </section>
+    </chapter>
+    
+    <chapter><title>Running SMDS</title>
+
+      <section><title>The SMDS Foundry</title>
+      
+<para>The SMDS Foundry must be running on each computer to participate in
+SMDS simulations before the simulations begin.  If the Foundry isn't started
+automatically, you can start, restart, or stop the Foundry manually with the
+starter utility:
+<programlisting>
+from smds.starter import start   ; start()
+from smds.starter import restart ; restart()
+from smds.starter import stop    ; stop()
+</programlisting>
+You can stop a remote foundry by connecting directly to the foundry and
+sending a QUIT message:
+<programlisting>
+import smds, socket
+from smds.Foundry import FOUNDRY_PORT
+s = socket.socket()
+s.connect(('hostname', FOUNDRY_PORT))
+smds.sendMsg(s, smds.messages['QUIT'])
+</programlisting></para>
+
+<para>To change the pool of remote processors, you can either change the
+hosts file and restart the local Foundry.  The pool can also be adjusted on
+the fly by connecting to the local foundry and sending an ADD or REMOVE
+message:
+<programlisting>
+import smds, socket
+from smds.Foundry import FOUNDRY_PORT
+s = socket.socket()
+s.connect(('localhost', FOUNDRY_PORT))
+smds.sendMsg(s, smds.messages['ADD'], 'hostToAdd')
+smds.sendMsg(s, smds.messages['REMOVE'], 'hostToRemove')
+</programlisting></para>
+      </section>
+      
+      <section><title>The SMDS Module</title>
+
+<para>The primary interface to the simulator is through the smds module. 
+Before executing any simulations, SMDS must first be initialized with
+smds.initialize().  This function takes an optional boolean parameter
+indicating whether to attempt to work in distributed mode, which is the
+default.  If the local foundry cannot be contacted, though, SMDS will fall
+back to single-processor mode.  The initialize function also takes an
+optional seed for the pseudo-random number generator.  If no seed is
+provided, the generator is initialized based on the current time.  To exit
+the simulator cleanly, execute smds.shutdown() before the end of your
+script.</para>
+
+<para>SMDS has several levels of logging through the smds.msg() function. 
+Set smds.verbosity to limit the number of messages logged to stderr with one
+of the following flags: smds.MSG_WARN, smds.MSG_INFO, smds.MSG_DBUG, or 0
+for completely silent.  The default level is smds.MSG_INFO.</para>
+
+<para>The smds.xmlWrite() function writes a list of batches or tasks in XML
+format to the file specified by the optional filename argument.  If no
+filename is provided, the XML data is written to stdout.  Similarly the
+smds.xmlRead() function reads XML-format data from the file specified by the
+optional filename (or stdin if no filename is given) and returns a list of
+batches.</para>
+
+<para>The smds.Batch class provides a convenient container for grouping
+tasks together.  It's initializer takes a list of tasks and an optional
+string ID.  Tasks can be accessed via their ID or all together through the
+data member:
+<programlisting>
+b = smds.Batch(taskList, 'Important Simulations')
+doSomething(b['Task Number One'])
+for task in b.data :
+  doSomething(task)
+</programlisting>
+And the entire batch be placed on the simulation queue with the addToQueue
+member function:
+<programlisting>
+b.addToQueue()
+smds.clearQueue()     # wait for the queue to clear
+doSomething(b)        # process results
+</programlisting>
+</para>
+      </section>
+
+      <section><title>Simulation Parameters</title>
+
+<para>Simulation parameters are stored in instances of the classes in the
+smds.Params module.  Each class corresponds with a different simulator core:
+<itemizedlist>
+  <listitem><para>c2D, basic 2D simulation</para></listitem>
+  <listitem><para>c2Di, 2D simulation with a supplied detection profile map
+</para></listitem>
+  <listitem><para>c2Dph, 2D simulation with photobleaching</para></listitem>
+  <listitem><para>c2Dphi, 2D simulation with photobleaching and a supplied
+detection profile map</para></listitem>
+  <listitem><para>c3D, basic 3D simulation</para></listitem>
+  <listitem><para>c3Di, 3D simulation with a supplied detection profile map
+</para></listitem>
+  <listitem><para>c3Dph, 3D simulation with photobleaching</para></listitem>
+  <listitem><para>c3Dphi, 3D simulation with photobleaching and a supplied
+detection profile map</para></listitem>
+</itemizedlist>
+For each class, there is an associated species class, either Species for
+non-photobleaching cores or Species_phot for photobleaching cores.  The
+initializer to each class takes an optional dictionary providing the
+parameter values.  For example,
+<programlisting>
+p = smds.Params.c3Di({
+      'dT' : 500,		# nm
+      'binWidth' : 0.1,		# ms
+      'numMolecs' : 48,
+      'dur' : 100,		# s
+      'bkg' : 0.4,		# phot/ms
+      'concentration' : 0.5,	# molec/um^3
+      'radius' : 256,		# nm (used in Fits)
+      'Z' : 1000,		# nm
+#     'threshold' : 1200,	# nm
+#     'threshold_Z' : 2500,	# nm
+      'intens' : smds.Task.Intens("filename"),
+      'species' : [ { 'D' : 1e-7, 'Imax' : 250, 'Fraction' = 0.6, },
+                    { 'D' : 1e-6, 'Imax' : 250, 'Fraction' = 0.4, }, ],
+                    		# D in cm^2/s, Imax in phot/ms
+    })
+</programlisting>
+</para>
+      </section>
+      
+      <section><title>Simulation Tasks</title>
+<para>The basic container for any simulation is the smds.Task.Task class. 
+It's initializer takes a string ID and an instance of a parameters class,
+which can later be accessed through the Task object's p member.  The
+parameters object supplied to the Task initializer is copied before it is
+placed in the Task.  The Task has a status member, which is set to the 
+following values in the course of simulation:
+<itemizedlist>
+  <listitem><para>smds.Task.Status_Ready</para></listitem>
+  <listitem><para>smds.Task.Status_Waiting</para></listitem>
+  <listitem><para>smds.Task.Status_Running</para></listitem>
+  <listitem><para>smds.Task.Status_Processing</para></listitem>
+  <listitem><para>smds.Task.Status_Done</para></listitem>
+  <listitem><para>smds.Task.Status_Error</para></listitem>
+</itemizedlist>
+A Task's status must be smds.Task.Status_Ready to be admitted to the
+simulation queue.</para>
+
+<para>The Task object also houses simulation results, statistics, and
+analyses.  Note that while the original Task object is always returned at
+the end of a simulation, it's member objects may have been replaced in the
+course of the simulation.  So, you may retain references to Task objects in
+other parts of your program across the simulation, but do not attempt to
+retain references to any analysis objects you place in your task before
+simulation as they may have been replaced by the time the simulation ends.
+Statistical results such as the total number of molecules and the average
+fluorescence are stored in the results member as an instance of the
+smds.Results class that corresponds with the Task's simulation core. 
+Run-time information (such as time of completion, number of descrete
+segments, and the host on which the simulation was run) is stored in the run
+member as an instance of the smds.Task.Run class.  To request the retention
+of the simulation's real-time fluorescence record or any form of analysis
+either place a template of the analysis requested in the Task's rtr or anal
+data members or pass the templates as optional parameters to the Task's
+initializer: <programlisting> t = smds.Task.Task("my-task", my_params,
+rtr=True,
+			anal=[smds.Analysis.ACF(), smds.Analysis.FCS_3D()] )
+# Or, alternatively:
+t = smds.Task.Task("my-task", my_params)
+t.rtr = smds.Task.RTR()		# Only if you want to retain the RTR
+t.anal = [smds.Analysis.ACF(), smds.Analysis.FCS_3D()]
+</programlisting>
+Though analysis objects may be replaced in the course of the simulation, the
+order of the objects in the anal list member of the Task object will be
+conserved.</para>
+      </section>
+
+      <section><title>Analysis</title>
+<para>Facilities for various kinds of analysis are provided by the
+smds.Analysis module as classes inheriting from smds.Analysis.Analysis. 
+There are currently three forms of analysis provided: autocorrelation,
+Single Event Duration Histograms (SEDH), and Fluorescence Correlation
+Spectroscopy (FCS) equation fitting.</para>
+
+<para>The smds.Analysis.ACF class performs an autocorrelation of the
+simulated real-time fluorescence record.  The results are stored in the
+member lists t and G, where time is specified in seconds.  A sum of squared
+residuals between two autocorrelation functions can be computed with the
+ssr() member function:
+<programlisting>
+acf_a.ssr(acf_b)
+</programlisting>
+The class also has utility methods to read and write autocorrelation 
+functions to an open file:
+<programlisting>
+acf.write(open('the-results.dat', 'w'))
+acf = smds.Analysis.ACF.read(open('the-results.dat', 'r'))
+</programlisting>
+</para>
+
+<para>The smds.Analysis.SEDH class tabulates a Single Event Duration
+Histogram of the simulated real-time fluorescence record.  It's initializer
+takes the bin width for the histograms (in ms) and the threshold for event
+discrimination (in photons/ms).  The results are stored in the member data
+as an array where indices indicate the length of the events counted in units
+of bin width (sedh.data[1] = number of one-bin events, sedh.data[2] = number
+of two-bin events, etc.).  The class also has functions to compute a sum of
+square residuals or a weighted difference between histograms: ssr() and
+diff().</para>
+
+<para>The classes inheriting from smds.Analysis.Fit provide facilities to
+fit equations to other simulation results.  Currently the standard FCS
+equations are provided by the following classes:
+<itemizedlist>
+  <listitem><para>FCS_2D, the standard 2D FCS equation</para></listitem>
+  <listitem><para>FCS_2D_bkg, the standard 2D FCS equation with background
+correction</para></listitem>
+  <listitem><para>FCS_2D, the standard 2D FCS equation with background
+correction and gamma = 0.5</para></listitem>
+  <listitem><para>FCS_3D, the standard 3D FCS equation</para></listitem>
+  <listitem><para>FCS_3D_bkg, the standard 3D FCS equation with background
+correction</para></listitem>
+  <listitem><para>FCS_3D, the standard 2D FCS equation with background
+correction and gamma = 0.35</para></listitem>
+</itemizedlist>
+The optimized fitting parameters are placed in the dictionary member coeff
+and the chi-square of the fit is placed in the data member chisq.</para>
+
+<para>The smds.Analysis module also provides for methods for finding the
+minimum of a parabolic fits: quadFit(X,Y), quadMin(A), quadFit3(XY, Z), and
+quadMin3(A), where X, Y, and Z are lists of data coordinates, XY is a
+list of pairs of coordinates, and A is the list of fitting parameters
+returned by quadFit() and quadFit3().</para>
+      </section>
+      
+      <section><title>Simplex Matching</title>
+<para>The smds.Analysis.match() function performs an optimization of an
+arbitrary figure of comparison of simulation results using the Simplex
+Algorithm.  The function takes four arguments: the data to be matched, a
+list containing the initial guess of the parameters to be varied, a function
+that maps that list of parameters to a Task object, and a comparison
+function that takes the data object and a completed Task object.  The
+function returns a triple containing a list of the matched parameters, the
+Task object that produced the matched minimum, and the figure of comparison
+for the match.  For example, a two-component autocorrelation function match
+might look like:
+<programlisting>
+params = ...		# initialize constant parameters
+def mapper(a) :
+  params.species[0].Fraction = a[0]
+  params.species[0].D = a[1]
+  params.species[1].Fraction = 1.0-a[0]
+  params.species[1].D = a[2]
+  return smds.Task.Task("%s-%f-%g-%g" % (prefix,)+tuple(a), params,
+  				anal = [smds.Analysis.ACF()] )
+def compare(data, t) :
+  return data.ssr(t.anal[0])
+
+expData = smds.Analysis.ACF.read(open('experimental.dat', 'r'))
+(x_min, task_matched, ssr) = smds.Analysis.match(expData, [0.5, 1e-7, 1e-6],
+					mapper, compare)
+print "Matched %f/%f mixture of %g and %g with SSR = %f" %  \
+		(x_min[0], 1.0-x_min[0], x_min[1], x_min[2], ssr)
+</programlisting></para>
+      </section>
+    </chapter>
+
+    <chapter><title>SMDS Cookbook</title>
+    
+    </chapter>
+<!--  </part> -->
+  
+<!--  <part><title>Extending SMDS</title> -->
+    <chapter><title>Extending SMDS</title>
+      <section><title>Adding New Cores</title>
+<para>The modular architecure of the SMDS makes adding new cores to cover
+new simulation evironments rather straight-forward.  Simply use the standard
+cores source code (base.c) as a template and make the following
+modifications.  You should be familiar with extending Python in C---see the
+Python documentation for further details.
+<orderedlist>
+
+  <listitem><para>#define CORE_NAME and CORE_DOC to the Python identifier
+for your core and a documentation string.</para></listitem>
+
+  <listitem><para>Augment the smds_molec and smds_core structures to
+accommodate additional parameters for each molecule and for the whole
+simulation, as well as any additional temporary working space
+needed.</para></listitem>
+
+  <listitem><para>Add any module-wide initialization to the init function
+(the function containing the call to Py_InitModule3).  See, for example, the
+storing of the smds.Task.Intens type in the detection profile
+cores.  For convenience, you should name your core's corresponding results
+and parameters classes the same thing as your core (CORE_NAME).  If you
+choose not to, however, you must insert the appropriate names in the
+assignment statements for ResultsType and ParamsType in the module
+initialization function.</para></listitem>
+
+  <listitem><para>Augment the smds_core_init function with code to translate
+your additional parameters from the supplied smds.Params object into
+simulation units and store them in the smds_core structure.  Here you should
+also allocate and initialize any temporary working space your core
+needs.</para></listitem>
+
+  <listitem><para>Augment the smds_core_create_molec to initialize molecules
+with your additional molecule-specific variables.</para></listitem>
+
+  <listitem><para>Modify smds_core_run to suit your new simulated
+environment.  You may use Random() to generate uniformly random 32-bit
+integer, DRandom() to generate a uniformly random double, and Poisson(mu) to
+generate a Poisson-distribution random integer based on the floating-point
+mean mu.  Note that you must release the Python Global Interpreter Lock
+(GIL) during the main portion of your simulation and reacquire it at the
+end.  You may not access any Python variables until the Lock has been
+reacquired.  You may use the macros Py_BEGIN_ALLOW_THREADS and
+Py_END_ALLOW_THREADS to create a block in which the GIL is released at the
+beginning and is reacquired at the end.</para></listitem>
+
+  <listitem><para>Augment the smds_core_getResults function to store new
+kinds of results in your core's Results object.</para></listitem>
+
+  <listitem><para>In the smds_core_free function, free any memory that you
+previously allocated in smds_core_init.</para></listitem>
+
+  <listitem><para>Add a new parameters class and, if necessary, a new
+species class to the smds.Params module.  The class should inherit from an
+existing class, and the __init__ function should call the parent class's
+__init__.  The __init__ function should also provide default values for each
+parameter your core recognizes.  If your core doesn't use the same species
+class as its parent, set the class variable SpeciesType to your species
+class.  Add a toXML function and interpretXMLvalue to your class to export
+and import your additional parameters.  For example:
+<programlisting>
+  def toXML(self, doc) :
+    n = ParentClass.toXML(self, doc)
+    n.appendChild(smds.createXMLvalue(doc, "bindingRate",
+					str(self.bindingRate)))
+    return n
+  def interpretXMLvalue(self, c) :
+    name = c.getAttribute('name')
+    if (name == "bindingRate") :
+      self.bindingRate = float(smds.strFromTxtNodes(c.childNodes))
+      return True
+    return ParentClass.interpretXMLvalue(self, c)
+</programlisting>
+The interpretXMLvalue function should return true if the value in XML node c
+is recognized or pass the unknown value up to the parent class.  You may
+also implement a member function taking no arguments that performs a sanity
+check on the simulation parameters.</para></listitem>
+
+  <listitem><para>Add a new results class to the smds.Results module,
+inheriting from an existing class.  Override the __init__, toXML, and
+interpretXMLvalue functions as in the parameters class, making sure to call
+the parent class's functions in each case.  Override the cat function to
+combine your new results for two simulation segments.  For example,
+<programlisting>
+  def cat(self, r) :
+    ParentClass.cat(self, r)
+    for i in range(len(self.numBindingEvents)) :	# each species
+      self.numBindingEvents[i] += r.numBindingEvents[i]
+</programlisting></para></listitem>
+
+  <listitem><para>Add your new core to the modules list in setup.py.  For
+example:
+<programlisting>
+modules = [
+		Extension('Cores.binding', sources=['smds/Cores/binding.c'],
+			  libraries= ['random'], library_dirs=['.'],),
+	       ...
+	  ]
+</programlisting>
+If you are cross-compiling for windows, add your core's .pyd file to the
+OUTPUT list in w32/Makefile and add a object code target.  For example,
+<programlisting>
+OUTPUT = binding.pyd librandom.dll Correlator.pyd ...
+binding.o : ../smds/Cores/binding.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c ../smds/Cores/binding.c -o $@
+</programlisting></para></listitem>
+
+  <listitem><para>Re-build and install SMDS with:
+<programlisting>python setup.py install</programlisting></para></listitem>
+</orderedlist></para>
+      </section>
+
+      <section><title>Adding New Fits</title>
+<para>New fitting equations can be created by subclassing the
+smds.Analysis.Fit class and adding the following members: name,
+chooseXY(self, task), initialGuess(self, task), and varCoeffs.  For each new
+fit, a pair should be added to the smds.Analysis.FitTypes dictionary, with
+the string member name as the key and the new class as the value.  The
+chooseXY function takes a task and returns a list of pairs that constitute
+the independent and dependent data fo the fit.  The initialGuess function
+takes a task and sets both the initial guesses for the fitting parameters in
+the member dictionary coeff as well as sets the member func to the fitting
+function, taking two arguments: a list of the fitting parameters and the
+indpenedent variable.  The order of the list of fitting parameters is
+defined by the member list varCoeffs, which consists of the names of the
+parameters as used in the dictionary coeffs.  For convenience, new fits that
+use the autocorrelation function of the real-time record may be subclassed
+from smds.Analysis.FitACF, which provides the chooseXY function.  The
+following example illustrates a class implementing the standard 3D FCS
+fitting equation, which has four fitting parameters, only two of which are
+varied:
+<programlisting>
+class FCS_3D (FitACF) :
+  name = "FCS 3D"
+  varCoeffs = ['N', 'D']
+  def initialGuess(self, task) :
+    self.coeff = { 'N' : 0.1, 'D' : 1.0e-7,
+                        'R' : task.p.radius, 'Z' : task.p.Z }
+    self.func = lambda p, x :                                           \
+        (1./p[0]) * (1.+4.*p[1]*x/(self.coeff['R']*1e-7)**2)**(-1) *    \
+        (1.+4.*p[1]*x/(self.coeff['Z']*1e-7)**2)**(-0.5) + 1.0
+</programlisting></para>
+      </section>
+
+      <section><title>Adding New Analyses</title>
+<para>Code for performing analysis of simulation results is encapsulated in
+classes inheriting from smds.Analysis.Analysis.  If an analysis is online
+(the online member is True), the simulator will supply the instance of the
+analysis class with the real-time record as it is generated.  Otherwise (the
+online member is False), the analysis is performed after the simulation has
+completed.  An offline analysis must simply supply the member function
+analyze, which takes the task to be analyzed as its single argument.  An
+online analysis must implement four methods: prepare, analyze, finalize, and
+combine.  The prepare method is called before the simulation begins, takes
+the task object as its argument, and should initialize the analysis code's
+state.  The online-version of the analyze method takes three parameters: the
+number of bins to analyze, a Numeric.array of type short, and a start index
+of the data array at which to begin the analysis.  This method is called as
+many times as is necessary in the course of the simulation until all data
+has passed through it.  The combine method takes another instance of the
+same analysis class as its argument and should incorporate the results of
+the second analysis object as if the real-time record passed through the
+second analysis object had been appended to the first analysis object.  The
+finalize method is called when the simulation has completed and again when
+all calls to combine have completed, takes no arguments, and should produce
+the final results of the analysis.</para>
+      </section>
+    </chapter>
+<!--  </part> -->
+  <appendix><title>SMDS Module Reference</title>
+<glosslist>
+
+  <glossentry><glossterm>Module: smds</glossterm>
+    <glossdef><glosslist>
+
+      <glossentry><glossterm>verbosity</glossterm>
+        <glossdef><para>
+          Variable indicating the level of output logging done.  Messages
+sent through the msg() function are transmitted to stderr if the message
+level is &lt;= verbosity.  Message levels may be (in increasing order of
+verbosity): smds.MSG_WARN, smds.MSG_INFO, smds.MSG_DBUG.
+        </para></glossdef>
+      </glossentry>
+      
+      <glossentry><glossterm>initialize(dispatch = True, seed = None)
+</glossterm>
+        <glossdef><para>
+          Initialize the Single-Molecule Diffusion Simulator.  If dispatch
+is True, SMDS will attempt to contact the local Foundry to operate in
+distributed mode.  If this contact fails or if dispatch is False, SMDS will
+operate in single-processor mode.  An optional seed for the random number
+generator may be provided, otherwise the generator is initialized with the
+current time.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>shutdown()</glossterm>
+        <glossdef><para>
+          Shutdown the simulator gracefully.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>xmlRead(filename = None)</glossterm>
+        <glossdef><para>
+          Reads an XML file specified by the string filename and returns a
+list of batches from the file.  If no filename is supplied, the XML data is
+read from stdin.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>xmlWrite(data, filename = None)</glossterm>
+        <glossdef><para>
+          Writes the given data to an XML file specified by the string
+filename.  If the filename is not specified, the XML data is written to
+stdout.  The data may be a task, batch, or list of tasks and batches.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>addToQueue(task, callback)</glossterm>
+        <glossdef><para>
+          Adds the given task to the work queue. The argument callback is a
+function accepting a single argument (the task) to be called when the Task
+is complete.  Note that the task's status may indicate an error occured when
+the callback is executed.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>queueIsEmpty()</glossterm>
+        <glossdef><para>
+          Returns True if and only if the simulation queue is empty.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>clearQueue()</glossterm>
+        <glossdef><para>
+          Waits for the simulation queue to clear.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>msg(s, level = MSG_INFO)</glossterm>
+        <glossdef><para>
+          Logs the given string to stderr if smds.verbosity >= level.  The
+time and a newline are added to the string.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>strFromTxtNodes(n)</glossterm>
+        <glossdef><para>
+          Converts a list of xml.dom.Node objects into a string by
+extracting the data from text nodes.  Used in functions that interpret SMDS
+objects from XML data.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>createXMLvalue(doc, name, v)</glossterm>
+        <glossdef><para>
+          Returns an instance of xml.dom.Node representing an XML Value
+element with the name and string (v) specified for insertion in the
+xml.dom.Document object doc.  Used in functions that convert SMDS objects to
+XML data.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>sendMsg(socket, msg, *args)</glossterm>
+        <glossdef><para>
+          Sends an SMDS message to the socket specified.  The msg is an
+integer value from the dictionary smds.messages.  Users may use this
+function to communicate with a Foundry by sending an ADD, REMOVE, or QUIT
+message.  The ADD and REMOVE messages take a single string hostname as their
+argument.
+        </para></glossdef>
+      </glossentry>
+
+      <glossentry><glossterm>Class: batch</glossterm>
+        <glossdef><glosslist>
+          
+          <glossentry><glossterm>batch(data = None, ID = None)</glossterm>
+            <glossdef><para>
+              Creates a new batch object from the given list of tasks.  A
+string identifier may be specified.  Tasks may be accessed either by
+indexing the batch using the task's string ID or through the batch's data
+member, which is its list of tasks.
+            </para></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>addTask(task)</glossterm>
+            <glossdef><para>
+              Add a new task to the batch.
+            </para></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>numTasks()</glossterm>
+            <glossdef><para>
+              Returns the number of tasks in the batch.
+            </para></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>addToQueue(callback = defaultCallback)</glossterm>
+            <glossdef><para>
+              Adds the batch's tasks to the simulation queue.  An optional
+callback may be specified to be executed on each task's completion.  The
+default callback simply reports via smds.msg() the task's successful or
+erroneous completion.
+            </para></glossdef>
+          </glossentry>
+        </glosslist></glossdef>
+      </glossentry> <!-- batch -->
+
+      <glossentry><glossterm>Module: Params</glossterm>
+        <glossdef><glosslist>
+          
+          <glossentry><glossterm>Class: Species</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>Initializer takes an optional dictionary of
+parameters.</para></listitem>
+              <listitem><para>D (cm^2/s)</para></listitem>
+              <listitem><para>Imax (phot/ms)</para></listitem>
+              <listitem><para>Fraction</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: Species_phot (Species)</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>tolerance (phot)</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: Base</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>Initializer takes an optional dictionary of
+parameters.</para></listitem>
+              <listitem><para>dT (ns)</para></listitem>
+              <listitem><para>binWidth (ms)</para></listitem>
+              <listitem><para>numMolecs</para></listitem>
+              <listitem><para>dur (s)</para></listitem>
+              <listitem><para>bkg (phot/ms)</para></listitem>
+              <listitem><para>SpeciesType (the corresponding species
+class)</para></listitem>
+              <listitem><para>copy()</para></listitem>
+              <listitem><para>getCore() (returns the corresponding core
+class)</para></listitem>
+              <listitem><para>okay() (returns True if the parameters are
+acceptable)</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: Base_intens</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>intens (smds.Task.Intens
+object)</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c2D (Base)</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>sample (list of objects of the class indicated
+by SpeciesType)</para></listitem>
+              <listitem><para>concentration (molec/um^2)</para></listitem>
+              <listitem><para>radius (nm)</para></listitem>
+              <listitem><para>threshold (nm)</para></listitem>
+              <listitem><para>SpeciesType = Species</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c3D (c2D)</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>Z (nm)</para></listitem>
+              <listitem><para>threshold_Z</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c2Dph (c2D)</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>SpeciesType = Species_phot</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c3Dph (c3D)</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>SpeciesType = Species_phot</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c2Di (c2D, Base_intens)</glossterm>
+            <glossdef></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c3Di (c3D, Base_intens)</glossterm>
+            <glossdef></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c2Dphi (c2Di)</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>SpeciesType = Species_phot</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: c3Dphi (c3Di)</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>SpeciesType = Species_phot</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+        </glosslist></glossdef>
+      </glossentry> <!-- Params -->
+
+      <glossentry><glossterm>Module: Task</glossterm>
+        <glossdef><glosslist>
+          
+          <glossentry><glossterm>Class: Intens</glossterm>
+            <glossdef><glosslist>
+              
+              <glossentry><glossterm>Intens(filename)</glossterm>
+                <glossdef><para>
+                  Loads the intensity profile from the given filename.  The
+file must be of the format: binWidth_x binWidth_z numBins_x numBins_z data,
+where the number of datapoints must be exactly (2*numBins_z+1) *
+(2*numBins_x+1)^2.  Thus in any axis, the coordinates of the data are on
+[-numBins, numBins].  The data are ASCII floating point values, separated by
+arbitrary amounts of whitespace.  The profile is normalized to [0, 1] after
+it has been read.  The data must be in Z, X, Y order.  The image must be
+square in the XY plane.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>fn</glossterm>
+                <glossdef><para>
+                  The string filename that identifies the intensity profile.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>data</glossterm>
+                <glossdef><para>
+                  A Numeric.array of type float on [0, 1] and of length
+(2*numBins_z+1) * (2*numBins_x+1)^2.  The data are stored in Z, X, Y order.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>binWidth_x, binWidth_z</glossterm>
+                <glossdef><para>
+                  The pixel width in the XY directions and Z directions, in
+nm.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>numBins_x, numBins_z</glossterm>
+                <glossdef><para>
+                  There are (2*numBins_x+1) pixels in the X and Y
+directions, and (2*numBins_z+1) pixels in the Z direction, such that the
+coordinates of the data in any axis are on [-numBins, numBins].
+                </para></glossdef>
+              </glossentry>
+            </glosslist></glossdef>
+          </glossentry> <!-- Intens -->
+
+          <glossentry><glossterm>Class: Run</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>host (the hostname of the computer that
+completed the simulation, or the master computer if the simulation was
+completed in distributed mode)</para></listitem>
+              <listitem><para>date (the time of completion as a
+string)</para></listitem>
+              <listitem><para>numSegments (the number of discrete segments
+into which the simulation was divided in distributed mode)</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry> <!-- Run -->
+
+          <glossentry><glossterm>Class: RTR</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>data (a Numeric.array of type
+Int16)</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry> <!-- RTR -->
+
+          <glossentry><glossterm>Class: Task</glossterm>
+            <glossdef><glosslist>
+              
+              <glossentry><glossterm>Task(ID = None, p = None, rtr = None,
+anal = None)</glossterm>
+                <glossdef><para>
+                  The initializer takes a string identifier (ID) and an
+instance of a parameters class (p).  To request the retention of the
+real-time fluorescence record, set rtr to true.  A list of instances of
+analysis classes may be passed through anal.  The arguments are copied
+before they are inserted into the task.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>ID</glossterm>
+                <glossdef><para>
+                  The task's string identifier.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>p</glossterm>
+                <glossdef><para>
+                  The task's parameters, an instance of an smds.Params
+class.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>run</glossterm>
+                <glossdef><para>
+                  An instance of the smds.Task.Run class encapsulating the
+simulation's run-time information.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>rtr</glossterm>
+                <glossdef><para>
+                  An instance of the smds.Task.RTR class containing the
+real-time fluorescence record.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>results</glossterm>
+                <glossdef><para>
+                  An instance of an smds.Results class corresponding to the
+task's core containing simulation statistics.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>anal</glossterm>
+                <glossdef><para>
+                  A list of smds.Analysis objects.
+                </para></glossdef>
+              </glossentry>
+            </glosslist></glossdef>
+          </glossentry> <!-- class Task -->
+        </glosslist></glossdef>
+      </glossentry> <!-- module Task -->
+
+      <glossentry><glossterm>Module: Results</glossterm>
+        <glossdef><glosslist>
+          
+          <glossentry><glossterm>Non-photobleaching cores</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>counts (actual number of each species
+simulated)</para></listitem>
+              <listitem><para>avg_I (phot/ms)</para></listitem>
+              <listitem><para>length (simulation length, in
+seconds)</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Photobleaching cores</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>The same results from the non-photobleaching
+cores</para></listitem>
+              <listitem><para>bleached (number of molecules of each species
+that bleached)</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+        </glosslist></glossdef>
+      </glossentry> <!-- Results -->
+
+      <glossentry><glossterm>Module: Analysis</glossterm>
+        <glossdef><glosslist>
+          
+          <glossentry><glossterm>Analysis</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>A generic class for holding data analysis
+results.</para></listitem>
+              <listitem><para>online (boolean)</para></listitem>
+              <listitem><para>copy()</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>SEDH</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>Initializer takes optional binwidth and
+threshold</para></listitem>
+              <listitem><para>binWidth (ms)</para></listitem>
+              <listitem><para>threshold (phot/ms)</para></listitem>
+              <listitem><para>data (list of number of events of length
+binWidth*i, for each list index i)</para></listitem>
+              <listitem><para>diff(sedh_b): weighted figure of
+comparison</para></listitem>
+              <listitem><para>ssr(sedh_b): sum of squared
+residuals</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>ACF</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>Autocorrelation function</para></listitem>
+              <listitem><para>t (list of delay times in
+seconds)</para></listitem>
+              <listitem><para>G (list of autocorrelation function
+values)</para></listitem>
+              <listitem><para>write(file): writes a text version of the ACF
+to the given open file in "t,G\n" pairs.</para></listitem>
+              <listitem><para>smds.Analysis.ACF.read(file): returns an ACF
+from the text read from the given open file in "t,G\n"
+pairs.</para></listitem>
+              <listitem><para>ssr(acf_b): sum of squared
+residuals</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Fit</glossterm>
+            <glossdef><itemizedlist>
+              <listitem><para>A generic equation fitting
+class.</para></listitem>
+              <listitem><para>name</para></listitem>
+              <listitem><para>coeff (dictionary containing the fitting
+parameters)</para></listitem>
+              <listitem><para>chisq</para></listitem>
+              <listitem><para>Available fits: FCS_2D ("FCS 2D"), FCS_2D_bkg
+("FCS 2D bkg"), FCS_2D_bkg_gamma ("FCS 2D bkg gamma"), FCS_3D ("FCS 3D"),
+FCS_3D_bkg ("FCS 3D bkg"), FCS_3D_bkg_gamma ("FCS 3D bkg
+gamma")</para></listitem>
+            </itemizedlist></glossdef>
+          </glossentry>
+
+          <glossentry><glossterm>Class: Tabulator</glossterm>
+            <glossdef><glosslist>
+              
+              <glossentry><glossterm>Tabulator(binWidthData, threshold,
+binWidthHist)</glossterm>
+                <glossdef><para>
+                  Initializes the tabulator to receive data with binwidth
+binWidthData (ms) and to tabulate events with the given threshold (phot/ms)
+into a histogram with the binwidth binWidthHist (ms).
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>tabulate(data)</glossterm>
+                <glossdef><para>
+                  Tabulates the data given in the supplied smds.Task.RTR.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>fetch()</glossterm>
+                <glossdef><para>
+                  Returns an instance of smds.Analysis.SEDH containing the
+tabulated SEDH.
+                </para></glossdef>
+              </glossentry>
+            </glosslist></glossdef>
+          </glossentry> <!-- Tabulator -->
+
+          <glossentry><glossterm>Class: Correlator</glossterm>
+            <glossdef><glosslist>
+              
+              <glossentry><glossterm>Correlator(binWidth)</glossterm>
+                <glossdef><para>
+                  Initialize the correlator to receive data with the given
+binwidth (ms).
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>append(data)</glossterm>
+                <glossdef><para>
+                  Append more data to the correlator.  The argument is
+either an instance of smds.Task.RTR or of smds.Analysis.Correlator.
+                </para></glossdef>
+              </glossentry>
+
+              <glossentry><glossterm>getACF()</glossterm>
+                <glossdef><para>
+                  Returns the smds.Analysis.ACF corresponding the the
+correlated data.
+                </para></glossdef>
+              </glossentry>
+            </glosslist></glossdef>
+          </glossentry> <!-- Correlator -->
+        </glosslist></glossdef>
+      </glossentry> <!-- Analysis -->
+    </glosslist></glossdef>
+  </glossentry> <!-- smds -->
+</glosslist>  
+  </appendix>
+
+  <appendix><title>SMDS XML Reference</title>
+<programlisting>
+<![CDATA[<SMDS>
+  <Batch ID="Batch ID">
+    <Task Core="c3Dphi" ID="Task ID">
+      <Params>
+        <Laser Radius="254" Z="1000"
+               IntensityProfile="map-3d.dat" 
+               bkg="7.15"/>
+<!-- a non intens core would also have Threshold and Threshold_Z attributes
+     for the Laser element -->
+        <Sample Concentration="0.2">
+          <Species D="3e-07" Fraction="1200.0" Imax="1200.0"
+		Tolerance="100000.0"/>
+        </Sample>
+        <Sim binWidth="0.1" dT="500" dur="300" numMolecs="48"/>
+      </Params>
+<!--
+      <Run date="Wed May 31 17:33:50 2006" host="hostname" numSegments="1"/>
+      <Results>
+        <Value Name="Length">
+          300.0
+        </Value>
+        <Value Name="Counts">
+          305
+        </Value>
+        <Value Name="Avg_I">
+          40.3949266667
+        </Value>
+        <Value Name="Bleached">
+          113
+        </Value>
+      </Results>
+-->
+      <RTR/>
+      <ACF/>
+      <SEDH binWidth="0.1" threshold="5"/>
+      <Fit type="FCS 3D">
+        <Coeff name="R" value="254"/>
+        <Coeff name="Z" value="1000"/>
+        <Coeff name="D" value="2.92418e-07"/>
+        <Coeff name="N" value="0.0685503"/>
+      </Fit>
+    </Task>
+  </Batch>
+</SMDS>]]>
+</programlisting>  
+  </appendix>
+
+  <appendix><title>The Distributed Real-time Autocorrelator</title>
+<para>TODO</para>  
+  </appendix>
+</book>
